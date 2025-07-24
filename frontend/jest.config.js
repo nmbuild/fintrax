@@ -1,20 +1,17 @@
 // frontend/jest.config.js
-module.exports = {
-  testEnvironment: 'jsdom',                // browser-like environment
-  roots: ['<rootDir>'],                    // look here for tests
-  transform: {
-    '^.+\\.[tj]sx?$': 'babel-jest',        // use Babel-Jest for TS, TSX, JS, JSX
-  },
-  moduleFileExtensions: [
-    'ts','tsx','js','jsx','json','node'
-  ],
-  testMatch: [
-    '**/__tests__/**/*.[jt]s?(x)',
-    '**/?(*.)+(spec|test).[tj]s?(x)'
-  ],
+const nextJest = require('next/jest');
+
+const createJestConfig = nextJest({
+  // Tell it where your `next.config.js` is:
+  dir: './',
+});
+
+const customJestConfig = {
+  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
-    '\\.(css|scss|sass|png|jpg|jpeg|svg)$': 'identity-obj-proxy',
+    '\\.(css|scss|sass|png|jpg|jpeg|svg)$': 'identity-obj-proxy'
   },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'], 
-  transformIgnorePatterns: ['/node_modules/'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 };
+
+module.exports = createJestConfig(customJestConfig);
