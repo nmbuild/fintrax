@@ -4,9 +4,9 @@ services:
       context: ./services/auth-service
       dockerfile: Dockerfile
     env_file:
-      - ./services/auth-service/.env
+      - ./services/auth-service/.env 
     ports:
-      - "3001:3000"       # auth-service → host 3001
+      - "3001:3000"
     networks:
       - finnet
 
@@ -14,14 +14,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # These come from your local or CI env, but aren’t persisted in the final image
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_API_URL:            ${NEXT_PUBLIC_API_URL}
     env_file:
-      - ./frontend/.env.local
+      - ./frontend/.env.local                 # contains only PUBLIC vars (publishableKey, etc.)
+    environment:
+      NODE_ENV: production
     ports:
-      - "3000:3000"       # frontend → host 3000
+      - "3000:3000"
     depends_on:
       - auth-service
-    environment:
-      NEXT_PUBLIC_API_URL: "http://auth-service:3000"
     networks:
       - finnet
 

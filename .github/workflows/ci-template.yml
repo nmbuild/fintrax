@@ -41,7 +41,7 @@ jobs:
           yarn audit --level high
 
   container-scan:
-    name: 'Build & Trivy-scan container for ${{ inputs.service }}'
+    name: Build & Scan Docker (${{ inputs.service }})
     needs: lint-test-audit
     runs-on: ubuntu-latest
     if: ${{ inputs.container }}
@@ -49,14 +49,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
+      # ── Build with build-args (frontend) ──
+      - name: Build Docker image (with build-args)
+        if: ${{ inputs.build-args != '' }}
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ inputs.path }}
+          tags: ${{ inputs.service }}:ci
+          load: true
+          build-args: |
+            ${{ inputs.build-args }}
+
+      # ── Build without build-args (all other services) ──
+      - name: Build Docker image (no build-args)
+        if: ${{ inputs.build-args == '' }}
         uses: docker/build-push-action@v4
         with:
           context: ${{ inputs.path }}
           tags: ${{ inputs.service }}:ci
           load: true
 
-      - name: Trivy Scan
+      - name: Trivy scan ${{ inputs.service }}
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ inputs.service }}:ci
