@@ -11,3 +11,6 @@ node_modules/
 # IDEs
 .vscode/
 .DS_Store
+
+# Coverage
+coverage/

@@ -35,3 +35,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`🚀 Auth service listening on http://localhost:${port}`);
 });
+
+export { server };
