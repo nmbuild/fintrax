@@ -1,4 +1,4 @@
-name: CI_Auth Service
+name: CI_Auth_Service
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - 'services/auth-service/**'
 
 jobs:
-  call-ci:
+  auth-service-ci:
     uses: ./.github/workflows/ci-template.yml
     with:
       service: 'auth-service'

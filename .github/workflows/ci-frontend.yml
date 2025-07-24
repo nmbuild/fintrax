@@ -1,5 +1,5 @@
 # .github/workflows/ci-frontend.yml
-name: CI – Frontend
+name: CI_Frontend
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - 'frontend/**'
 
 jobs:
-  call-ci:
+  frontend-ci:
     uses: ./.github/workflows/ci-template.yml
     with:
       service: 'frontend'
