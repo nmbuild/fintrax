@@ -1,5 +1,5 @@
 # .github/workflows/ci-frontend.yml
-name: CI_Frontend
+name: CI – Frontend
 
 on:
   push:
@@ -10,7 +10,6 @@ on:
     paths:
       - 'frontend/**'
 
-# .github/workflows/ci-frontend.yml
 jobs:
   call-ci:
     uses: ./.github/workflows/ci-template.yml
@@ -19,7 +18,7 @@ jobs:
       path: 'frontend'
       node-version: '22'
       container: true
-      build-args: |
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}
-        NEXT_PUBLIC_API_URL=http://auth-service:3000
-
+      next_public_api_url: 'http://auth-service:3000'
+    # ← Pass your GitHub secret here
+    secrets:
+      clerk_publishable_key: ${{ secrets.CLERK_PUBLISHABLE_KEY }}

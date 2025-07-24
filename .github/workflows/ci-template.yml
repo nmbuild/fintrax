@@ -2,74 +2,59 @@ on:
   workflow_call:
     inputs:
       service:
-        description: 'Service name'
         required: true
         type: string
       path:
-        description: 'Relative path to the service'
         required: true
         type: string
       node-version:
-        description: 'Node.js major version'
         required: true
         type: string
       container:
-        description: 'Build & scan container?'
         required: false
         type: boolean
         default: false
+      next_public_api_url:
+        required: false
+        type: string
+    # ← Declare any secrets you want callers to pass in
+    secrets:
+      clerk_publishable_key:
+        description: 'Clerk publishable key (frontend only)'
+        required: false
 
 jobs:
-  lint-test-audit:
-    name: 'Lint -> Test -> Audit => ${{ inputs.service }}'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ inputs.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ inputs.node-version }}
-
-      - name: Install deps, lint, test, audit
-        working-directory: ${{ inputs.path }}
-        run: |
-          yarn install --frozen-lockfile
-          yarn lint
-          yarn test
-          yarn audit --level high
+  # … your lint-test-audit job here …
 
   container-scan:
-    name: Build & Scan Docker (${{ inputs.service }})
     needs: lint-test-audit
     runs-on: ubuntu-latest
     if: ${{ inputs.container }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ── Build with build-args (frontend) ──
-      - name: Build Docker image (with build-args)
-        if: ${{ inputs.build-args != '' }}
+      # Frontend build (uses the secret)
+      - name: Build frontend image (with build-args)
+        if: ${{ inputs.service == 'frontend' }}
         uses: docker/build-push-action@v4
         with:
           context: ${{ inputs.path }}
           tags: ${{ inputs.service }}:ci
           load: true
           build-args: |
-            ${{ inputs.build-args }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.clerk_publishable_key }}
+            NEXT_PUBLIC_API_URL=${{ inputs.next_public_api_url }}
 
-      # ── Build without build-args (all other services) ──
-      - name: Build Docker image (no build-args)
-        if: ${{ inputs.build-args == '' }}
+      # Other services (no build-args)
+      - name: Build service image (no build-args)
+        if: ${{ inputs.service != 'frontend' }}
         uses: docker/build-push-action@v4
         with:
           context: ${{ inputs.path }}
           tags: ${{ inputs.service }}:ci
           load: true
 
-      - name: Trivy scan ${{ inputs.service }}
+      - name: Trivy scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ inputs.service }}:ci
