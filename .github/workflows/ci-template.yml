@@ -1,40 +1,63 @@
+# .github/workflows/ci-template.yml
 on:
   workflow_call:
     inputs:
       service:
+        description: 'Service name'
         required: true
         type: string
       path:
+        description: 'Path to the service directory'
         required: true
         type: string
       node-version:
+        description: 'Node major version'
         required: true
         type: string
       container:
+        description: 'Whether to build & scan a Docker image'
         required: false
         type: boolean
         default: false
       next_public_api_url:
+        description: 'Frontend-only: public API URL'
         required: false
         type: string
-    # ← Declare any secrets you want callers to pass in
     secrets:
       clerk_publishable_key:
-        description: 'Clerk publishable key (frontend only)'
+        description: 'Frontend-only: Clerk publishable key'
         required: false
 
 jobs:
-  # … your lint-test-audit job here …
+  lint-test-audit:
+    name: 'Lint ▶ Test ▶ Audit ${{ inputs.service }}'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install, lint, test, audit
+        working-directory: ${{ inputs.path }}
+        run: |
+          yarn install --frozen-lockfile
+          yarn lint
+          yarn test
+          yarn audit --level high
 
   container-scan:
+    name: 'Build & Scan Docker ${{ inputs.service }}'
     needs: lint-test-audit
     runs-on: ubuntu-latest
     if: ${{ inputs.container }}
     steps:
       - uses: actions/checkout@v4
 
-      # Frontend build (uses the secret)
-      - name: Build frontend image (with build-args)
+      # Frontend: build with build-args
+      - name: Build frontend image
         if: ${{ inputs.service == 'frontend' }}
         uses: docker/build-push-action@v4
         with:
@@ -45,8 +68,8 @@ jobs:
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.clerk_publishable_key }}
             NEXT_PUBLIC_API_URL=${{ inputs.next_public_api_url }}
 
-      # Other services (no build-args)
-      - name: Build service image (no build-args)
+      # Backends: build without build-args
+      - name: Build service image
         if: ${{ inputs.service != 'frontend' }}
         uses: docker/build-push-action@v4
         with:
