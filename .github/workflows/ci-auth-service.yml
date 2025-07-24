@@ -1,0 +1,19 @@
+name: CI_Auth Service
+
+on:
+  push:
+    paths:
+      - 'services/auth-service/**'
+      - '.github/workflows/ci-auth-service.yml'
+  pull_request:
+    paths:
+      - 'services/auth-service/**'
+
+jobs:
+  call-ci:
+    uses: ./.github/workflows/ci-template.yml
+    with:
+      service: 'auth-service'
+      path: 'services/auth-service'
+      node-version: '18'
+      container: true
