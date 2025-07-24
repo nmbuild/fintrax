@@ -21,7 +21,7 @@ on:
 
 jobs:
   lint-test-audit:
-    name: 'Lint ▶ Test ▶ Audit ${{ inputs.service }}'
+    name: 'Lint -> Test -> Audit => ${{ inputs.service }}'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
