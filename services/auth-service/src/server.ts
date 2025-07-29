@@ -8,7 +8,6 @@ const server = http.createServer(async (req, res) => {
   try {
     const host = req.headers.host ?? `localhost:${port}`;
     const url = `http://${host}${req.url}`;
-    // Convert Node’s IncomingMessage into a Web ReadableStream for fetch()
     const body: BodyInit | undefined = ['GET', 'HEAD'].includes(req.method || '')
       ? undefined
       : (Readable.toWeb(req) as unknown as BodyInit);
