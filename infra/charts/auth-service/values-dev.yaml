@@ -1,0 +1,9 @@
+replicaCount: 1
+image:
+  repository: ghcr.io/nmbuild/fintrax-auth-service
+  tag: dev
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 3000
+resources: {}

@@ -52,21 +52,23 @@ jobs:
           else \
             docker push ghcr.io/nmbuild/fintrax-${{ inputs.service }}:${TAG}; \
           fi
-      - name: Update deployment manifest with new image tag
+      - name: Update Helm values file with new image tag
         run: |
+          # Determine environment from branch name
+          if [[ "${GITHUB_REF}" == *"main" ]]; then ENV="prod";
+          elif [[ "${GITHUB_REF}" == *"staging" ]]; then ENV="staging";
+          else ENV="dev"; fi
+
+          # Patch the correct values file
           if [ "${{ inputs.service }}" = "frontend" ]; then \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-frontend:'"${TAG}"'"' -i infra/k8s/dev/frontend/deployment.yaml; \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-frontend:'"${TAG}"'"' -i infra/k8s/staging/frontend/deployment.yaml; \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-frontend:'"${TAG}"'"' -i infra/k8s/prod/frontend/deployment.yaml; \
+            yq e '.image.tag = "'"${TAG}"'"' -i infra/charts/frontend/values-${ENV}.yaml; \
           else \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-'"${{ inputs.service }}"':'"${TAG}"'"' -i infra/k8s/dev/${{ inputs.service }}/deployment.yaml; \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-'"${{ inputs.service }}"':'"${TAG}"'"' -i infra/k8s/staging/${{ inputs.service }}/deployment.yaml; \
-            yq e '.spec.template.spec.containers[0].image = "ghcr.io/nmbuild/fintrax-'"${{ inputs.service }}"':'"${TAG}"'"' -i infra/k8s/prod/${{ inputs.service }}/deployment.yaml; \
+            yq e '.image.tag = "'"${TAG}"'"' -i infra/charts/${{ inputs.service }}/values-${ENV}.yaml; \
           fi
-      - name: Commit and push manifest
+      - name: Commit and push Helm values file
         run: |
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub Actions"
-          git add infra/k8s/*/${{ inputs.service }}/deployment.yaml || git add infra/k8s/*/frontend/deployment.yaml
+          git add infra/charts/*/values-*.yaml
           git commit -m "Update ${{ inputs.service }} image to ${TAG} [ci skip]" || echo "No changes to commit"
           git push
