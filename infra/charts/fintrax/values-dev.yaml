@@ -1,0 +1,33 @@
+# Global configuration for all services
+global:
+  namespace: fintrax-dev
+  imageRegistry: ghcr.io/nmbuild
+
+# Service-specific configurations
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nmbuild/fintrax-frontend
+    tag: dev
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources: {}
+
+auth-service:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nmbuild/fintrax-auth-service
+    tag: dev
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources: {}
+  secrets:
+    CLERK_PUBLISHABLE_KEY: ""
+    CLERK_SECRET_KEY: ""
+    PORT: "3000"

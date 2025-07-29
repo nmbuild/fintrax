@@ -16,3 +16,12 @@ node_modules/
 coverage/
 
 context/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+

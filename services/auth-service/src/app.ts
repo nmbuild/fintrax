@@ -1,4 +1,3 @@
-// services/auth-service/src/app.ts
 import { Hono } from 'hono'
 import clerkClient from '@clerk/clerk-sdk-node'
 import { z } from 'zod'

@@ -1,0 +1,28 @@
+apiVersion: v2
+name: fintrax
+version: 0.1.0
+description: Umbrella chart for all Fintrax services
+type: application
+
+dependencies:
+  - name: frontend
+    version: "0.1.0"
+    repository: "file://../frontend"
+    condition: frontend.enabled
+  - name: auth-service
+    version: "0.1.0"
+    repository: "file://../auth-service"
+    condition: auth-service.enabled
+  # Future services - uncomment as you add them:
+  # - name: transaction-service
+  #   version: "0.1.0"
+  #   repository: "file://../transaction-service"
+  #   condition: transaction-service.enabled
+  # - name: account-service
+  #   version: "0.1.0"
+  #   repository: "file://../account-service"
+  #   condition: account-service.enabled
+  # - name: analytics-service
+  #   version: "0.1.0"
+  #   repository: "file://../analytics-service"
+  #   condition: analytics-service.enabled

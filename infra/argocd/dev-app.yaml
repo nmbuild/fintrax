@@ -7,8 +7,11 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/nmbuild/fintrax.git'
-    targetRevision: main
-    path: infra/k8s/dev
+    targetRevision: develop
+    path: infra/charts/fintrax
+    helm:
+      valueFiles:
+        - values-dev.yaml
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: fintrax-dev

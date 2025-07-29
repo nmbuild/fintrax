@@ -18,6 +18,11 @@ on:
       - develop
       - staging
 
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
 jobs:
   call-template:
     uses: ./.github/workflows/ci-template.yml

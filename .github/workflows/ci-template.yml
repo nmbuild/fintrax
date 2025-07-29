@@ -7,6 +7,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
 jobs:
   lint-test-build-push:
     runs-on: ubuntu-latest
@@ -67,6 +72,33 @@ jobs:
           else \
             yq e '.image.tag = "'"${TAG}"'"' -i infra/charts/${{ inputs.service }}/values-${ENV}.yaml; \
           fi
+      - name: Update Helm values with secrets
+        env:
+          CLERK_PUB_DEV: ${{ secrets.CLERK_PUBLISHABLE_KEY_DEV }}
+          CLERK_SECRET_DEV: ${{ secrets.CLERK_SECRET_KEY_DEV }}
+          CLERK_PUB_STAGING: ${{ secrets.CLERK_PUBLISHABLE_KEY_STAGING }}
+          CLERK_SECRET_STAGING: ${{ secrets.CLERK_SECRET_KEY_STAGING }}
+          CLERK_PUB_PROD: ${{ secrets.CLERK_PUBLISHABLE_KEY_PROD }}
+          CLERK_SECRET_PROD: ${{ secrets.CLERK_SECRET_KEY_PROD }}
+        run: |
+          # Determine environment from branch name
+          if [[ "${GITHUB_REF}" == *"main" ]]; then 
+            ENV="prod"
+            CLERK_PUB="${CLERK_PUB_PROD}"
+            CLERK_SECRET="${CLERK_SECRET_PROD}"
+          elif [[ "${GITHUB_REF}" == *"staging" ]]; then 
+            ENV="staging"
+            CLERK_PUB="${CLERK_PUB_STAGING}"
+            CLERK_SECRET="${CLERK_SECRET_STAGING}"
+          else 
+            ENV="dev"
+            CLERK_PUB="${CLERK_PUB_DEV}"
+            CLERK_SECRET="${CLERK_SECRET_DEV}"
+          fi
+
+          # Update auth-service secrets in umbrella chart
+          yq e '.auth-service.secrets.CLERK_PUBLISHABLE_KEY = "'"${CLERK_PUB}"'"' -i infra/charts/fintrax/values-${ENV}.yaml
+          yq e '.auth-service.secrets.CLERK_SECRET_KEY = "'"${CLERK_SECRET}"'"' -i infra/charts/fintrax/values-${ENV}.yaml
       - name: Commit and push Helm values file
         run: |
           git config --global user.email "ci@github.com"
