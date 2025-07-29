@@ -1,0 +1,6 @@
+aws_region = "us-east-1"
+db_name = "fintrax_prod"
+db_user = "fintraxuser_prod"
+db_password = "prodpassword"
+s3_bucket_name = "fintrax-static-site-prod"
+ami_id = "ami-xxxxxxx"

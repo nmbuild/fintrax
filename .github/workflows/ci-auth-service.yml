@@ -1,19 +1,25 @@
-name: CI_Auth_Service
+name: Auth Service CI
 
 on:
   push:
     paths:
       - 'services/auth-service/**'
       - '.github/workflows/ci-auth-service.yml'
+    branches:
+      - main
+      - develop
+      - staging
   pull_request:
     paths:
       - 'services/auth-service/**'
+      - '.github/workflows/ci-auth-service.yml'
+    branches:
+      - main
+      - develop
+      - staging
 
 jobs:
-  auth-service-ci:
+  call-template:
     uses: ./.github/workflows/ci-template.yml
     with:
-      service: 'auth-service'
-      path: 'services/auth-service'
-      node-version: '18'
-      container: true
+      service: auth-service

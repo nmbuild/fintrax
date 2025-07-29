@@ -1,23 +1,25 @@
-# .github/workflows/ci-frontend.yml
-name: CI – Frontend
+name: Frontend CI
 
 on:
   push:
     paths:
       - 'frontend/**'
       - '.github/workflows/ci-frontend.yml'
+    branches:
+      - main
+      - develop
+      - staging
   pull_request:
     paths:
       - 'frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+    branches:
+      - main
+      - develop
+      - staging
 
 jobs:
-  call-ci:
+  call-template:
     uses: ./.github/workflows/ci-template.yml
     with:
-      service: 'frontend'
-      path: 'frontend'
-      node-version: '22'
-      container: true
-      next_public_api_url: 'http://auth-service:3000'
-    secrets:
-      clerk_publishable_key: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      service: frontend

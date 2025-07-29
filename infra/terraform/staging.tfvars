@@ -1,0 +1,6 @@
+aws_region = "us-east-1"
+db_name = "fintrax_staging"
+db_user = "fintraxuser_staging"
+db_password = "stagingpassword"
+s3_bucket_name = "fintrax-static-site-staging"
+ami_id = "ami-xxxxxxx"

@@ -1,7 +1,7 @@
 import http from 'http';
 import { Readable } from 'stream';
 import app from './app';
-
+import 'dotenv/config';
 const port = Number(process.env.PORT) || 3000;
 
 const server = http.createServer(async (req, res) => {

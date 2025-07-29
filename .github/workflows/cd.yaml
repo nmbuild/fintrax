@@ -1,0 +1,20 @@
+name: CD Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Deploy with ArgoCD (prod)
+        if: github.ref == 'refs/heads/main'
+        uses: argoproj/argo-cd-action@v2
+        with:
+          version: v2.11.0
+          command: app sync fintrax-prod
+          grpc-web: false
+          argocd-token: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          argocd-server: ${{ secrets.ARGOCD_SERVER }}
