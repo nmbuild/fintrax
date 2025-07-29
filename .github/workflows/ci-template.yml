@@ -17,11 +17,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'yarn'
+      - name: Enable Corepack (for modern Yarn)
+        run: corepack enable
       - name: Install dependencies
         run: |
           if [ "${{ inputs.service }}" = "frontend" ]; then cd frontend; else cd services/${{ inputs.service }}; fi
-          yarn install --frozen-lockfile
+          yarn install --immutable
       - name: Lint
         run: |
           if [ "${{ inputs.service }}" = "frontend" ]; then cd frontend; else cd services/${{ inputs.service }}; fi
