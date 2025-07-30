@@ -1,0 +1,46 @@
+# Development Environment Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fintrax-dev
+  labels:
+    name: fintrax-dev
+    environment: development
+    project: fintrax
+  annotations:
+    description: "Development environment for fintrax application"
+---
+# Resource Quota for Development
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-resource-quota
+  namespace: fintrax-dev
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "10"
+    services: "5"
+    persistentvolumeclaims: "4"
+---
+# Network Policy for Development (Allow all within namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dev-network-policy
+  namespace: fintrax-dev
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: fintrax-dev
+  egress:
+  - {}

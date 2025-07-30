@@ -1,0 +1,27 @@
+# Monitoring Namespace for shared observability
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    environment: shared
+    project: fintrax
+  annotations:
+    description: "Shared monitoring stack (Prometheus, Grafana, Loki)"
+---
+# Resource Quota for Monitoring
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: monitoring-resource-quota
+  namespace: monitoring
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "15"
+    services: "10"
+    persistentvolumeclaims: "5"

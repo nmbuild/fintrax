@@ -1,0 +1,59 @@
+# Production Environment Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fintrax-prod
+  labels:
+    name: fintrax-prod
+    environment: production
+    project: fintrax
+  annotations:
+    description: "Production environment for fintrax application"
+---
+# Resource Quota for Production (Higher limits)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-resource-quota
+  namespace: fintrax-prod
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "8"
+---
+# Network Policy for Production (Most restrictive)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prod-network-policy
+  namespace: fintrax-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: fintrax-prod
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system  # For service mesh
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP
+    - protocol: TCP
+      port: 5432 # PostgreSQL
