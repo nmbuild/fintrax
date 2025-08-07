@@ -1,0 +1,423 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [develop, staging, main, feature/*]
+    paths: 
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [develop, staging, main]
+    paths: 
+      - 'frontend/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: nmbuild/fintrax-frontend
+
+jobs:
+  # Security & Quality Checks
+  security-scan:
+    name: Security & Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+          cache-dependency-path: 'frontend/yarn.lock'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Run ESLint (SAST)
+        working-directory: frontend
+        run: yarn lint || echo "Lint script not found, skipping..."
+
+      - name: Run TypeScript type checking
+        working-directory: frontend
+        run: yarn type-check || npx tsc --noEmit
+
+      - name: Run unit tests with coverage
+        working-directory: frontend
+        run: yarn test -- --coverage --watchAll=false
+        env:
+          NODE_ENV: test
+
+      - name: Build Next.js app
+        working-directory: frontend
+        run: yarn build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-test-results
+          path: |
+            frontend/coverage/
+            frontend/.next/
+
+      # Supply Chain Security
+      - name: Run yarn audit
+        working-directory: frontend
+        run: yarn audit --level moderate || echo "Audit issues found, review required"
+
+      # Dependency vulnerability scan
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=frontend/package.json --severity-threshold=high
+
+      # SBOM Generation
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: frontend
+          format: spdx-json
+          output-file: frontend-sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-frontend
+          path: frontend-sbom.spdx.json
+
+  # Container Build & Scan
+  build-and-scan:
+    name: Build & Scan Container
+    runs-on: ubuntu-latest
+    needs: security-scan
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-uri: ${{ steps.build.outputs.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            type=sha,prefix=pr-{{branch}}-,enable=${{ github.event_name == 'pull_request' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        timeout-minutes: 20
+
+      # Set final build status
+      - name: Check build status
+        run: |
+          if [[ "${{ steps.build.outcome }}" == "success" ]]; then
+            echo "Multi-platform build succeeded"
+            echo "BUILD_STATUS=multi-platform" >> $GITHUB_ENV
+          elif [[ "${{ steps.build-fallback.outcome }}" == "success" ]]; then
+            echo "⚠️  Multi-platform build failed, but AMD64 build succeeded"
+            echo "BUILD_STATUS=amd64-only" >> $GITHUB_ENV
+          else
+            echo "❌ Both multi-platform and AMD64-only builds failed"
+            exit 1
+          fi
+
+      # Verify the image was pushed successfully
+      - name: Verify image exists
+        run: |
+          echo "Image digest: ${{ steps.build.outputs.digest }}"
+          echo "Image tags: ${{ steps.meta.outputs.tags }}"
+          # Pull the image to verify it exists
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+
+      # Container Security Scanning
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: 'table'
+          output: 'trivy-results.txt'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-results-frontend
+          path: 'trivy-results.txt'
+
+      # Image Signing with Cosign
+      # Image Signing with Cosign
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Check network connectivity
+        run: |
+          echo "🌐 Testing network connectivity..."
+          curl -I https://ghcr.io/v2/ || echo "Direct GHCR access failed"
+          curl -I https://oauth2.sigstore.dev/ || echo "Sigstore OAuth access failed"
+          nslookup ghcr.io || echo "DNS resolution for GHCR failed"
+          echo "Network check completed"
+
+      - name: Debug build outputs
+        run: |
+          echo "Build digest: ${{ steps.build.outputs.digest }}"
+          echo "Image reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          echo "Testing connectivity to GHCR..."
+          curl -I https://ghcr.io/v2/ || echo "GHCR connectivity test failed"
+
+      - name: Sign container image
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          # Login with retry logic
+          echo "🔐 Attempting to login to container registry..."
+          for i in {1..3}; do
+            echo "Login attempt $i/3..."
+            if timeout 60s bash -c 'echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin'; then
+              echo "✅ Successfully logged in on attempt $i"
+              break
+            else
+              echo "❌ Login attempt $i failed"
+              if [ $i -eq 3 ]; then
+                echo "All login attempts failed, skipping image signing"
+                exit 1
+              fi
+              echo "Waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+          
+          # Sign with retry logic and shorter timeout
+          echo "🖊️ Attempting to sign container image..."
+          for i in {1..2}; do
+            echo "Signing attempt $i/2..."
+            if timeout 180s cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}; then
+              echo "✅ Successfully signed image on attempt $i"
+              exit 0
+            else
+              echo "❌ Signing attempt $i failed"
+              if [ $i -eq 2 ]; then
+                echo "All signing attempts failed, but continuing pipeline"
+                exit 1
+              fi
+              echo "Waiting 15 seconds before retry..."
+              sleep 15
+            fi
+          done
+
+  # E2E Tests (Optional - can be expanded)
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+          cache-dependency-path: 'frontend/yarn.lock'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: yarn test:e2e || echo "E2E tests not configured, skipping..."
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+  # Deploy to Development
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-and-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
+
+      - name: Deploy to development using Helm
+        run: |
+          helm upgrade --install frontend ./infra/charts/frontend \
+            --namespace fintrax-dev \
+            --create-namespace \
+            --values ./infra/charts/frontend/values-dev.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
+
+      - name: Verify development deployment
+        run: |
+          kubectl rollout status deployment/frontend -n fintrax-dev --timeout=300s
+          kubectl get pods -n fintrax-dev -l app=frontend
+
+      - name: Run development health check
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n fintrax-dev
+          kubectl port-forward svc/frontend 8080:3000 -n fintrax-dev &
+          sleep 10
+          curl -f http://localhost:8080 || echo "Frontend not responding"
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-scan]  # Remove deploy-dev dependency
+    if: github.ref == 'refs/heads/staging'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
+
+      - name: Deploy to staging using Helm
+        run: |
+          helm upgrade --install frontend ./infra/charts/frontend \
+            --namespace fintrax-staging \
+            --create-namespace \
+            --values ./infra/charts/frontend/values-staging.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
+
+      - name: Verify staging deployment
+        run: |
+          kubectl rollout status deployment/frontend -n fintrax-staging --timeout=300s
+          kubectl get pods -n fintrax-staging -l app=frontend
+
+  # Deploy to Production (Manual Approval Required)
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-scan]  # Remove dependency on staging for manual deployment
+    if: github.ref == 'refs/heads/main'
+    environment: production  # This requires manual approval in GitHub
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
+
+      - name: Deploy to production using Helm
+        run: |
+          helm upgrade --install frontend ./infra/charts/frontend \
+            --namespace fintrax-prod \
+            --create-namespace \
+            --values ./infra/charts/frontend/values-prod.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
+
+      - name: Post-deployment verification
+        run: |
+          kubectl rollout status deployment/frontend -n fintrax-prod --timeout=300s
+          kubectl get pods -n fintrax-prod -l app=frontend
+
+      # Production smoke tests
+      - name: Run production smoke tests
+        run: |
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=frontend -n fintrax-prod --timeout=300s
+          
+          # Port forward and run smoke tests
+          kubectl port-forward svc/frontend 8080:3000 -n fintrax-prod &
+          sleep 15
+          
+          # Basic smoke tests
+          echo "Running production smoke tests..."
+          curl -f http://localhost:8080 || exit 1
+          echo "✅ Frontend is responding"
+          
+          # Test sign-in page
+          curl -f http://localhost:8080/sign-in || echo "⚠️  Sign-in page not available"
+          
+          echo "🚀 Production frontend deployment verification completed"

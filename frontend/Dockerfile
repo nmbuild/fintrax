@@ -1,32 +1,60 @@
-# ─────────── Builder Stage ───────────
+# ─────────── Builder Stage ──────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# 1) Accept build-args
+# Install build dependencies for native modules
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++
+
+# Accept build arguments
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_URL
 
-# 2) Export them into the Next build environment
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# Set environment variables with fallbacks for build
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_test_build_placeholder}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
 
-# 3) Dependencies
+# Copy dependency files
 COPY package.json yarn.lock ./
+
+# Install dependencies
 RUN yarn install --frozen-lockfile
 
-# 4) Source + Build
+# Copy source code and build
 COPY . .
+
+# Skip static generation during Docker build
+ENV SKIP_ENV_VALIDATION=true
 RUN yarn build
 
 # ─────── Production Stage ───────
-FROM node:22-alpine
+FROM node:22-alpine AS runner
 WORKDIR /app
+
+# Install runtime dependencies
+RUN apk add --no-cache libc6-compat
+
+# Set production environment
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=builder /app/.next ./.next
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy built application
 COPY --from=builder /app/public ./public
-COPY package.json yarn.lock ./
-RUN yarn install --production --frozen-lockfile
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Switch to non-root user
+USER nextjs
+
+# Expose port
 EXPOSE 3000
-CMD ["yarn", "start"]
+
+# Start the application
+CMD ["node", "server.js"]

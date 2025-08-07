@@ -1,0 +1,61 @@
+# ─────────── Builder Stage ───────────
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+# Install build dependencies for native modules (lightningcss/swc)
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++
+
+# 1) Accept build-args (only public keys, no secrets)
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_API_URL
+
+# 2) Export them into the Next build environment
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+# Configure npm for better network handling
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 300000 && \
+    npm config set fetch-timeout 300000
+
+# 3) Dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --production=false
+
+# 4) Source + Build
+COPY . .
+RUN npm run build
+
+# ─────────── Production Stage ───────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+# Essential Alpine packages (includes ca-certificates for HTTPS)
+RUN apk add --no-cache ca-certificates
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy Next.js standalone build (automatic optimization!)
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+# Set ownership to non-root user
+RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user
+USER nextjs
+
+# Use Node.js built-in server (Next 13.4+)
+EXPOSE 3000
+ENV PORT=3000
+ENV NODE_ENV=production
+
+CMD ["node", "server.js"]

@@ -1,0 +1,49 @@
+# Staging Environment Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fintrax-staging
+  labels:
+    name: fintrax-staging
+    environment: staging
+    project: fintrax
+  annotations:
+    description: "Staging environment for fintrax application"
+---
+# Resource Quota for Staging
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: staging-resource-quota
+  namespace: fintrax-staging
+spec:
+  hard:
+    requests.cpu: "3"
+    requests.memory: 6Gi
+    limits.cpu: "6"
+    limits.memory: 12Gi
+    pods: "15"
+    services: "8"
+    persistentvolumeclaims: "6"
+---
+# Network Policy for Staging (More restrictive)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: staging-network-policy
+  namespace: fintrax-staging
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: fintrax-staging
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - {}

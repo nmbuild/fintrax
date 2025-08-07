@@ -1,33 +1,69 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fintrax-postgres
+    environment:
+      POSTGRES_DB: fintrax_dev
+      POSTGRES_USER: fintraxuser_dev
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintraxuser_dev -d fintrax_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finnet
+
+  # Auth Service
   auth-service:
     build:
       context: ./services/auth-service
       dockerfile: Dockerfile
+    container_name: fintrax-auth-service
     env_file:
-      - ./services/auth-service/.env 
+      - ./services/auth-service/.env.local
+    environment:
+      - DATABASE_URL=postgresql://fintraxuser_dev:devpassword@postgres:5432/fintrax_dev
     ports:
       - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - finnet
 
+  # Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # These come from your local or CI env, but aren’t persisted in the final image
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-        NEXT_PUBLIC_API_URL:            ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    container_name: fintrax-frontend
     env_file:
-      - ./frontend/.env.local                 # contains only PUBLIC vars (publishableKey, etc.)
+      - ./frontend/.env.local
     environment:
-      NODE_ENV: production
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://auth-service:3000
     ports:
       - "3000:3000"
     depends_on:
       - auth-service
+    restart: unless-stopped
     networks:
       - finnet
+
+volumes:
+  postgres_data:
 
 networks:
   finnet:

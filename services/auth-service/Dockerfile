@@ -1,19 +1,20 @@
 # Build stage
 FROM node:18-alpine AS build
 WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-RUN yarn build
+RUN npm run build
 
-# Production stage
+# Production stage - using the built application
+# This stage is optimized for production use
 FROM node:18-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=build /app/dist ./dist
-COPY package.json yarn.lock ./
-RUN yarn install --production --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
 
 USER node
 EXPOSE 3000
