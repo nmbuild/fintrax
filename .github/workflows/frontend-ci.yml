@@ -265,7 +265,6 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
 
   # Deploy to Development
-  # Deploy to Development (PR to develop)
   deploy-dev:
     name: Deploy to Development
     runs-on: ubuntu-latest
@@ -307,56 +306,6 @@ jobs:
             --create-namespace \
             --values ./infra/charts/frontend/values-dev.yaml \
             --set image.repository=ghcr.io/nmbuild/fintrax-frontend \
-            --set image.tag=develop \
-            --wait --timeout=300s
-
-      - name: Verify development deployment
-        run: |
-          kubectl rollout status deployment/frontend -n fintrax-dev --timeout=300s
-          kubectl get pods -n fintrax-dev -l app=frontend
-
-  # Deploy to Development (merged to develop)  
-  deploy-dev-merge:
-    name: Deploy to Development (Merge)
-    runs-on: ubuntu-latest
-    needs: [build-and-scan]
-    if: github.ref == 'refs/heads/develop'
-    environment: development
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.0'
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
-
-      - name: Create GHCR secret
-        run: |
-          kubectl create secret docker-registry ghcr-secret \
-            --docker-server=ghcr.io \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GH_GITHUB_TOKEN }} \
-            --namespace fintrax-dev \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Deploy to development using Helm
-        run: |
-          helm upgrade --install frontend ./infra/charts/frontend \
-            --namespace fintrax-dev \
-            --create-namespace \
-            --values ./infra/charts/frontend/values-dev.yaml \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
             --set image.tag=develop \
             --wait --timeout=300s
 
