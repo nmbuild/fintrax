@@ -15,6 +15,10 @@ spec:
       labels:
         app: {{ include "frontend.name" . }}
     spec:
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.image.pullSecrets | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ include "frontend.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
