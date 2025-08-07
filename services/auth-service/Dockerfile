@@ -6,7 +6,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage
+# Production stage - using the built application
+# This stage is optimized for production use
 FROM node:18-alpine
 WORKDIR /app
 ENV NODE_ENV=production
