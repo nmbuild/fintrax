@@ -245,10 +245,11 @@ jobs:
         run: |
           helm upgrade --install auth-service ./infra/charts/auth-service \
             --namespace fintrax-dev \
+            --create-namespace \
             --values ./infra/charts/auth-service/values-dev.yaml \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --wait
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
 
       - name: Verify deployment
         run: |
@@ -270,7 +271,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-and-scan, deploy-dev]
+    needs: [build-and-scan]  # Remove deploy-dev dependency
     if: github.ref == 'refs/heads/staging'
     environment: staging
     steps:
@@ -294,10 +295,11 @@ jobs:
         run: |
           helm upgrade --install auth-service ./infra/charts/auth-service \
             --namespace fintrax-staging \
+            --create-namespace \
             --values ./infra/charts/auth-service/values-staging.yaml \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --wait
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
 
       - name: Verify staging deployment
         run: |
@@ -332,10 +334,11 @@ jobs:
         run: |
           helm upgrade --install auth-service ./infra/charts/auth-service \
             --namespace fintrax-prod \
+            --create-namespace \
             --values ./infra/charts/auth-service/values-prod.yaml \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --wait
+            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --wait --timeout=300s
 
       - name: Post-deployment verification
         run: |
