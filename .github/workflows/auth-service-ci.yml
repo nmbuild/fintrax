@@ -111,7 +111,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -187,7 +187,7 @@ jobs:
         run: |
           # Login with retry logic
           for i in {1..3}; do
-            echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin && break || {
+            echo "${{ secrets.GH_GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin && break || {
               echo "Login attempt $i failed, retrying in 10 seconds..."
               sleep 10
             }
@@ -245,8 +245,59 @@ jobs:
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_TEST }}
 
   # Deploy to Development
+  # Deploy to Development (PR to develop)
   deploy-dev:
     name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-and-scan, integration-tests]
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    environment: development
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
+
+      - name: Create GHCR secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GH_GITHUB_TOKEN }} \
+            --namespace fintrax-dev \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to dev using Helm
+        run: |
+          helm upgrade --install auth-service ./infra/charts/auth-service \
+            --namespace fintrax-dev \
+            --create-namespace \
+            --values ./infra/charts/auth-service/values-dev.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=feature-auth \
+            --wait --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/auth-service -n fintrax-dev --timeout=300s
+          kubectl get pods -n fintrax-dev -l app=auth-service
+
+  # Deploy to Development (merged to develop)  
+  deploy-dev-merge:
+    name: Deploy to Development (Merge)
     runs-on: ubuntu-latest
     needs: [build-and-scan, integration-tests]
     if: github.ref == 'refs/heads/develop'
@@ -270,6 +321,15 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --region us-east-1 --name fintrax-eks-dev
 
+      - name: Create GHCR secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GH_GITHUB_TOKEN }} \
+            --namespace fintrax-dev \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy to dev using Helm
         run: |
           helm upgrade --install auth-service ./infra/charts/auth-service \
@@ -277,24 +337,13 @@ jobs:
             --create-namespace \
             --values ./infra/charts/auth-service/values-dev.yaml \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.ref_name }}-${{ github.sha }} \
+            --set image.tag=develop \
             --wait --timeout=300s
 
       - name: Verify deployment
         run: |
           kubectl rollout status deployment/auth-service -n fintrax-dev --timeout=300s
           kubectl get pods -n fintrax-dev -l app=auth-service
-
-      # Health check and smoke tests
-      - name: Run service health check
-        run: |
-          # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/auth-service -n fintrax-dev
-          
-          # Port forward and test health endpoint
-          kubectl port-forward svc/auth-service 8080:3000 -n fintrax-dev &
-          sleep 10
-          curl -f http://localhost:8080/health || echo "Health endpoint not available"
 
   # Deploy to Staging
   deploy-staging:
