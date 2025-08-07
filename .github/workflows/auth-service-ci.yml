@@ -15,6 +15,12 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: nmbuild/fintrax-auth-service
 
+# Required permissions for OIDC signing
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   # Security & Quality Checks
   security-scan:
@@ -183,23 +189,17 @@ jobs:
 
       - name: Sign container image
         env:
-          COSIGN_EXPERIMENTAL: 1
+          COSIGN_YES: true
+        continue-on-error: true
+        timeout-minutes: 5
         run: |
-          # Login with retry logic
-          for i in {1..3}; do
-            echo "${{ secrets.GH_GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin && break || {
-              echo "Login attempt $i failed, retrying in 10 seconds..."
-              sleep 10
-            }
-          done
+          # Login to container registry
+          echo "🔐 Logging into container registry..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
           
-          # Sign with retry logic and increased timeout
-          for i in {1..3}; do
-            timeout 300 cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }} && break || {
-              echo "Signing attempt $i failed, retrying in 15 seconds..."
-              sleep 15
-            }
-          done
+          # Sign image using GitHub OIDC (fully headless)
+          echo "🖊️ Signing container image with GitHub OIDC..."
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   # Integration Tests
   integration-tests:

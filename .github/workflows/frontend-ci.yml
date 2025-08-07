@@ -15,6 +15,12 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: nmbuild/fintrax-frontend
 
+# Required permissions for OIDC signing
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   # Security & Quality Checks
   security-scan:
@@ -205,35 +211,17 @@ jobs:
 
       - name: Sign container image
         env:
-          COSIGN_EXPERIMENTAL: 1
+          COSIGN_YES: true
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 5
         run: |
           # Login with retry logic
-          echo "🔐 Attempting to login to container registry..."
-          for i in {1..3}; do
-            echo "Login attempt $i/3..."
-            if timeout 60s bash -c 'echo "${{ secrets.GH_GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin'; then
-              echo "✅ Successfully logged in on attempt $i"
-              break
-            else
-              echo "❌ Login attempt $i failed"
-              if [ $i -eq 3 ]; then
-                echo "All login attempts failed, skipping image signing"
-                exit 1
-              fi
-              echo "Waiting 10 seconds before retry..."
-              sleep 10
-            fi
-          done
+          echo "🔐 Logging into container registry..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
           
-          # Sign with retry logic and shorter timeout
-          echo "🖊️ Attempting to sign container image..."
-          for i in {1..2}; do
-            echo "Signing attempt $i/2..."
-            if timeout 180s cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}; then
-              echo "✅ Successfully signed image on attempt $i"
-              exit 0
+          # Sign image using GitHub OIDC (fully headless)
+          echo "🖊️ Signing container image with GitHub OIDC..."
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
             else
               echo "❌ Signing attempt $i failed"
               if [ $i -eq 2 ]; then
