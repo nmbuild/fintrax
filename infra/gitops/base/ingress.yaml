@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: fintrax-ingress
+  name: fintrax-public-ingress
   namespace: fintrax-dev
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
