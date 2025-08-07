@@ -30,6 +30,21 @@ env:
     value: "development"
   - name: NEXT_PUBLIC_API_URL
     value: "http://auth-service.fintrax-dev.svc.cluster.local:3000"
+  # Clerk Authentication Configuration - UPDATED WITH CORRECT KEYS
+  - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    value: "pk_test_YWxlcnQtY2FyaWJvdS03MS5jbGVyay5hY2NvdW50cy5kZXYk"
+  - name: NEXT_PUBLIC_CLERK_SIGN_IN_URL
+    value: "/sign-in"
+  - name: NEXT_PUBLIC_CLERK_SIGN_UP_URL
+    value: "/sign-up"
+  - name: NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+    value: "/"
+  - name: NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
+    value: "/"
+
+# Secret environment variables - UPDATED WITH CORRECT SECRET KEY
+secrets:
+  CLERK_SECRET_KEY: "sk_test_i8xJCSTUGaOUrKdw3cTIrDWGRO2eSUp9XUbXQ9ove4"
 
 resources:
   limits:

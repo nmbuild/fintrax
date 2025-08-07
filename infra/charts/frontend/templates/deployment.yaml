@@ -25,4 +25,14 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
+          env:
+            {{- if .Values.env }}
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "frontend.fullname" . }}-secrets
           resources: {{- toYaml .Values.resources | nindent 12 }}

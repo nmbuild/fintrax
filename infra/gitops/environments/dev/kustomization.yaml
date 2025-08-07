@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: fintrax-dev
+
+resources:
+- ../../base
+
+images:
+- name: ghcr.io/nmbuild/fintrax-frontend
+  newTag: feature-auth
+- name: ghcr.io/nmbuild/fintrax-auth-service
+  newTag: feature-auth
+
+secretGenerator:
+- name: frontend-secrets
+  literals:
+  - CLERK_SECRET_KEY=sk_test_i8xJCSTUGaOUrKdw3cTIrDWGRO2eSUp9XUbXQ9ove4
