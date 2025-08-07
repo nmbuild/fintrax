@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "fintrax-eks-staging"
+  },
+  {
+    "ParameterKey": "KubernetesVersion",
+    "ParameterValue": "1.30"
+  },
+  {
+    "ParameterKey": "NodeInstanceType",
+    "ParameterValue": "t3.medium"
+  },
+  {
+    "ParameterKey": "DesiredCapacity",
+    "ParameterValue": "2"
+  },
+  {
+    "ParameterKey": "MaxSize",
+    "ParameterValue": "4"
+  },
+  {
+    "ParameterKey": "MinSize",
+    "ParameterValue": "2"
+  },
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "fintrax_staging"
+  },
+  {
+    "ParameterKey": "DBUsername",
+    "ParameterValue": "fintraxuser_staging"
+  },
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "StagingPassword123!"
+  },
+  {
+    "ParameterKey": "S3BucketName",
+    "ParameterValue": "fintrax-static-staging-12345"
+  }
+]

@@ -1,0 +1,201 @@
+name: 🏗️ Infrastructure Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - deploy
+          - delete
+          - list
+        default: 'deploy'
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: 'dev'
+      confirm_delete:
+        description: 'Type "DELETE" to confirm deletion (required for delete action)'
+        required: false
+        type: string
+        default: ''
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure:
+    name: ${{ inputs.action == 'deploy' && '🚀 Deploy' || inputs.action == 'delete' && '🗑️ Delete' || '📋 List' }} Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ✅ Validate AWS Configuration
+        run: |
+          echo "🔍 Validating AWS credentials..."
+          aws sts get-caller-identity
+          echo "✅ AWS credentials validated successfully!"
+
+      - name: 🚀 Deploy Infrastructure
+        if: inputs.action == 'deploy'
+        run: |
+          STACK_NAME="fintrax-${{ inputs.environment }}"
+          TEMPLATE_FILE="infra/cloudformation/fintrax-infrastructure.yaml"
+          PARAMETERS_FILE="infra/cloudformation/parameters-${{ inputs.environment }}.json"
+          
+          echo "🏗️ Deploying CloudFormation stack: $STACK_NAME"
+          echo "📋 Environment: ${{ inputs.environment }}"
+          echo "📄 Template: $TEMPLATE_FILE"
+          echo "⚙️ Parameters: $PARAMETERS_FILE"
+          
+          # Check if parameters file exists
+          if [ ! -f "$PARAMETERS_FILE" ]; then
+            echo "❌ ERROR: Parameters file not found: $PARAMETERS_FILE"
+            exit 1
+          fi
+          
+          # Check if stack exists
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" &> /dev/null; then
+            echo "🔄 Stack exists. Updating..."
+            aws cloudformation update-stack \
+              --stack-name "$STACK_NAME" \
+              --template-body file://"$TEMPLATE_FILE" \
+              --parameters file://"$PARAMETERS_FILE" \
+              --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+              --region ${{ env.AWS_REGION }}
+            
+            echo "⏳ Waiting for stack update to complete..."
+            aws cloudformation wait stack-update-complete \
+              --stack-name "$STACK_NAME" \
+              --region ${{ env.AWS_REGION }}
+          else
+            echo "🆕 Stack does not exist. Creating..."
+            aws cloudformation create-stack \
+              --stack-name "$STACK_NAME" \
+              --template-body file://"$TEMPLATE_FILE" \
+              --parameters file://"$PARAMETERS_FILE" \
+              --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+              --region ${{ env.AWS_REGION }}
+            
+            echo "⏳ Waiting for stack creation to complete..."
+            aws cloudformation wait stack-create-complete \
+              --stack-name "$STACK_NAME" \
+              --region ${{ env.AWS_REGION }}
+          fi
+          
+          echo "✅ Stack $STACK_NAME deployed successfully!"
+
+      - name: 📋 Get Stack Outputs
+        if: inputs.action == 'deploy'
+        run: |
+          STACK_NAME="fintrax-${{ inputs.environment }}"
+          echo "📊 Stack Outputs for $STACK_NAME:"
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue,Description]' \
+            --output table || echo "No outputs available"
+
+      - name: 🛡️ Validate Delete Confirmation
+        if: inputs.action == 'delete'
+        run: |
+          if [ "${{ inputs.confirm_delete }}" != "DELETE" ]; then
+            echo "❌ ERROR: Delete confirmation required!"
+            echo "Please type 'DELETE' in the confirm_delete field to proceed with deletion."
+            exit 1
+          fi
+          echo "✅ Delete confirmation validated"
+
+      - name: 🗑️ Delete Infrastructure
+        if: inputs.action == 'delete'
+        run: |
+          STACK_NAME="fintrax-${{ inputs.environment }}"
+          
+          echo "🗑️ Deleting CloudFormation stack: $STACK_NAME"
+          echo "⚠️ Environment: ${{ inputs.environment }}"
+          
+          # Check if stack exists
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" &> /dev/null; then
+            echo "🔄 Stack exists. Proceeding with deletion..."
+            
+            # Delete the stack
+            aws cloudformation delete-stack \
+              --stack-name "$STACK_NAME" \
+              --region ${{ env.AWS_REGION }}
+            
+            echo "⏳ Waiting for stack deletion to complete..."
+            aws cloudformation wait stack-delete-complete \
+              --stack-name "$STACK_NAME" \
+              --region ${{ env.AWS_REGION }}
+            
+            echo "✅ Stack $STACK_NAME deleted successfully!"
+          else
+            echo "⚠️ Stack $STACK_NAME does not exist or was already deleted"
+          fi
+
+      - name: 📋 List All Stacks
+        if: inputs.action == 'list'
+        run: |
+          echo "📋 FinTrax CloudFormation Stacks:"
+          aws cloudformation list-stacks \
+            --stack-status-filter \
+              CREATE_COMPLETE \
+              UPDATE_COMPLETE \
+              DELETE_FAILED \
+              ROLLBACK_COMPLETE \
+            --query 'StackSummaries[?starts_with(StackName, `fintrax-`)].{Name:StackName,Status:StackStatus,Created:CreationTime,Updated:LastUpdatedTime}' \
+            --output table \
+            --region ${{ env.AWS_REGION }} || echo "No stacks found"
+
+      - name: 💰 Cost Estimation (Deploy Only)
+        if: inputs.action == 'deploy'
+        run: |
+          STACK_NAME="fintrax-${{ inputs.environment }}"
+          echo "💰 Estimated Monthly Costs for ${{ inputs.environment }} environment:"
+          echo "📊 EKS Control Plane: ~$73/month"
+          echo "🖥️ EC2 Nodes (t3.medium x2): ~$60/month"
+          echo "🗄️ RDS (db.t3.micro): ~$13/month"
+          echo "⚖️ Load Balancer: ~$16/month"
+          echo "📦 Storage & Other: ~$10/month"
+          echo "💵 Total Estimated: ~$170/month"
+          echo ""
+          echo "💡 To minimize costs:"
+          echo "   • Use Free Tier resources when possible"
+          echo "   • Delete stacks when not in use"
+          echo "   • Monitor AWS billing dashboard"
+
+      - name: 🎯 Next Steps
+        if: inputs.action == 'deploy'
+        run: |
+          echo "🎯 Infrastructure deployed! Next steps:"
+          echo "1. 🔧 Update kubeconfig: aws eks update-kubeconfig --name fintrax-eks-${{ inputs.environment }} --region ${{ env.AWS_REGION }}"
+          echo "2. 🚀 Deploy ArgoCD: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+          echo "3. 📱 Deploy applications via ArgoCD or GitOps workflows"
+          echo "4. 🔍 Monitor costs in AWS Console"
+
+      - name: 📊 Deployment Summary
+        if: always() && inputs.action != 'list'
+        run: |
+          echo "📊 Deployment Summary:"
+          echo "   🎯 Action: ${{ inputs.action }}"
+          echo "   🌍 Environment: ${{ inputs.environment }}"
+          echo "   📍 Region: ${{ env.AWS_REGION }}"
+          echo "   📅 Timestamp: $(date -u)"
+          echo "   👤 Triggered by: ${{ github.actor }}"
+          echo "   🔗 Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

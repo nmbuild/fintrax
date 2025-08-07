@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "ClusterName",
+    "ParameterValue": "fintrax-eks-prod"
+  },
+  {
+    "ParameterKey": "KubernetesVersion",
+    "ParameterValue": "1.30"
+  },
+  {
+    "ParameterKey": "NodeInstanceType",
+    "ParameterValue": "t3.large"
+  },
+  {
+    "ParameterKey": "DesiredCapacity",
+    "ParameterValue": "3"
+  },
+  {
+    "ParameterKey": "MaxSize",
+    "ParameterValue": "6"
+  },
+  {
+    "ParameterKey": "MinSize",
+    "ParameterValue": "2"
+  },
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "fintrax_prod"
+  },
+  {
+    "ParameterKey": "DBUsername",
+    "ParameterValue": "fintraxuser_prod"
+  },
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "ProductionPassword123!"
+  },
+  {
+    "ParameterKey": "S3BucketName",
+    "ParameterValue": "fintrax-static-prod-12345"
+  }
+]
