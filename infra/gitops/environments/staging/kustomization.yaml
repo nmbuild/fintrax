@@ -18,7 +18,7 @@ patches:
 secretGenerator:
 - name: frontend-secrets
   literals:
-  - CLERK_SECRET_KEY=sk_test_STAGING_KEY_HERE  # Different staging keys
+  - CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}  # Different staging keys
 
 configMapGenerator:
 - name: environment-config
