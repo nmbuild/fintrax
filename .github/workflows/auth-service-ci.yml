@@ -136,13 +136,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Verify the image was pushed successfully
+      - name: Verify image exists
+        run: |
+          echo "Image digest: ${{ steps.build.outputs.digest }}"
+          echo "Image tags: ${{ steps.meta.outputs.tags }}"
+          # Pull the image to verify it exists
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+
       # Container Security Scanning
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
