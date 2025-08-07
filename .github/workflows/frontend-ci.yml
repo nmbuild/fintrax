@@ -127,7 +127,7 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (multi-platform)
         id: build
         uses: docker/build-push-action@v5
         with:
@@ -140,6 +140,39 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}
+        continue-on-error: true
+        timeout-minutes: 30
+
+      # Fallback to AMD64 only if multi-platform fails
+      - name: Build and push Docker image (AMD64 only)
+        id: build-fallback
+        if: steps.build.outcome == 'failure'
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}
+        timeout-minutes: 20
+
+      # Set final build status
+      - name: Check build status
+        run: |
+          if [[ "${{ steps.build.outcome }}" == "success" ]]; then
+            echo "Multi-platform build succeeded"
+            echo "BUILD_STATUS=multi-platform" >> $GITHUB_ENV
+          elif [[ "${{ steps.build-fallback.outcome }}" == "success" ]]; then
+            echo "⚠️  Multi-platform build failed, but AMD64 build succeeded"
+            echo "BUILD_STATUS=amd64-only" >> $GITHUB_ENV
+          else
+            echo "❌ Both multi-platform and AMD64-only builds failed"
+            exit 1
+          fi
 
       # Verify the image was pushed successfully
       - name: Verify image exists

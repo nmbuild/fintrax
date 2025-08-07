@@ -9,7 +9,7 @@ RUN apk add --no-cache \
     make \
     g++
 
-# 1) Accept build-args
+# 1) Accept build-args (only public keys, no secrets)
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_URL
 
@@ -17,9 +17,18 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# 3) Dependencies
+# Configure yarn for better network handling
+ENV YARN_NETWORK_TIMEOUT=300000
+ENV YARN_NETWORK_CONCURRENCY=1
+
+# 3) Dependencies with retry mechanism
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN yarn config set network-timeout 300000 && \
+    yarn config set network-concurrency 1 && \
+    for i in 1 2 3 4 5; do \
+        yarn install --frozen-lockfile --network-timeout 300000 && break || \
+        (echo "Yarn install attempt $i failed, retrying..." && sleep 10); \
+    done
 
 # 4) Source + Build
 COPY . .
