@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// DevSecOps CI/CD Pipeline Configuration
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
