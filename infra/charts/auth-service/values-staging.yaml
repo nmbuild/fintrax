@@ -1,0 +1,45 @@
+# Auth Service Helm Values for Staging Environment
+replicaCount: 2
+
+image:
+  repository: ghcr.io/nmbuild/fintrax-auth-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+env:
+  - name: NODE_ENV
+    value: "staging"
+  - name: PORT
+    value: "3000"
+  - name: LOG_LEVEL
+    value: "info"
+
+secrets:
+  CLERK_PUBLISHABLE_KEY: "pk_test_replace_with_staging_key"
+  CLERK_SECRET_KEY: "sk_test_replace_with_staging_key"
+  DATABASE_URL: "postgresql://fintraxuser_staging:stagingpassword@postgres:5432/fintrax_staging"
+
+resources:
+  limits:
+    cpu: 750m
+    memory: 768Mi
+  requests:
+    cpu: 375m
+    memory: 384Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70

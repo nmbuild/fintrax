@@ -1,0 +1,103 @@
+# Prometheus Configuration for Fintrax DevSecOps
+prometheus:
+  server:
+    # Schedule on monitoring nodes with taint tolerance
+    tolerations:
+    - key: workload-type
+      value: monitoring
+      effect: NoSchedule
+    nodeSelector:
+      NodeGroup: monitoring
+    
+    # Resource limits for cost optimization
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 200m
+      limits:
+        memory: 1Gi
+        cpu: 500m
+    
+    # Persistent storage for metrics
+    persistentVolume:
+      enabled: true
+      size: 8Gi
+      storageClass: gp2
+    
+    # Scrape configuration for fintrax services
+    extraScrapeConfigs: |
+      - job_name: 'fintrax-services'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - fintrax-dev
+            - fintrax-staging
+            - fintrax-prod
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+
+  # Disable components we don't need for cost optimization
+  pushgateway:
+    enabled: false
+  alertmanager:
+    enabled: true
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+
+# Grafana Configuration
+grafana:
+  # Schedule on monitoring nodes
+  tolerations:
+  - key: workload-type
+    value: monitoring
+    effect: NoSchedule
+  nodeSelector:
+    NodeGroup: monitoring
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 300m
+  
+  # Persistent storage
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClassName: gp2
+  
+  # Admin credentials (change in production!)
+  adminUser: admin
+  adminPassword: fintrax-admin-2024
+  
+  # Data sources
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true
+  
+  # Enable service monitor
+  serviceMonitor:
+    enabled: true
+  
+  # Grafana configuration
+  grafana.ini:
+    server:
+      root_url: http://grafana.fintrax.local
+    security:
+      allow_embedding: true
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer

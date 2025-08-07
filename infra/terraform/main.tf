@@ -137,10 +137,62 @@ resource "aws_db_instance" "postgres" {
 }
 
 resource "aws_s3_bucket" "static" {
-  bucket        = var.s3_bucket_name
+  bucket        = "fintrax-static-site-dev-${random_string.bucket_suffix.result}"
   force_destroy = true
 
   tags = {
     Name = "fintrax-static-assets"
   }
 }
+
+resource "random_string" "bucket_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+# KMS key for EBS encryption with proper permissions
+resource "aws_kms_key" "ebs" {
+  description             = "KMS key for EBS encryption in EKS"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow EKS Service"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKeyWithoutPlaintext",
+          "kms:CreateGrant"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "fintrax-ebs-encryption-key"
+  }
+}
+
+resource "aws_kms_alias" "ebs" {
+  name          = "alias/fintrax-ebs-encryption"
+  target_key_id = aws_kms_key.ebs.key_id
+}
+
+data "aws_caller_identity" "current" {}

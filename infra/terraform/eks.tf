@@ -38,11 +38,7 @@ module "eks" {
       launch_template_use_name_prefix = true
       launch_template_version         = "$Latest"
       
-      # Enable access to the cluster
-      remote_access = {
-        ec2_ssh_key               = aws_key_pair.eks_key.key_name
-        source_security_group_ids = [aws_security_group.eks_remote_access.id]
-      }
+      # Note: remote_access is not compatible with launch_template
       
       # EBS optimization
       ebs_optimized = true
@@ -56,8 +52,7 @@ module "eks" {
             volume_type           = "gp3"
             iops                  = 3000
             throughput            = 150
-            encrypted             = true
-            kms_key_id            = aws_kms_key.eks.arn
+            encrypted             = false
             delete_on_termination = true
           }
         }
@@ -103,11 +98,7 @@ module "eks" {
       launch_template_use_name_prefix = true
       launch_template_version         = "$Latest"
       
-      # Enable access to the cluster
-      remote_access = {
-        ec2_ssh_key               = aws_key_pair.eks_key.key_name
-        source_security_group_ids = [aws_security_group.eks_remote_access.id]
-      }
+      # Note: remote_access is not compatible with launch_template
       
       # EBS optimization
       ebs_optimized = true
@@ -121,8 +112,7 @@ module "eks" {
             volume_type           = "gp3"
             iops                  = 3000
             throughput            = 150
-            encrypted             = true
-            kms_key_id            = aws_kms_key.eks.arn
+            encrypted             = false
             delete_on_termination = true
           }
         }

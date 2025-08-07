@@ -1,0 +1,95 @@
+# Pre-commit configuration for Fintrax DevSecOps
+repos:
+  # Generic security and quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+
+  # Secret detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock.json|yarn.lock
+
+  # Docker security
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: ['--ignore', 'DL3008', '--ignore', 'DL3009']
+
+  # Terraform security
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.81.0
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+      - id: terraform_tflint
+        args:
+          - '--args=--only=terraform_deprecated_interpolation'
+          - '--args=--only=terraform_deprecated_index'
+          - '--args=--only=terraform_unused_declarations'
+          - '--args=--only=terraform_comment_syntax'
+          - '--args=--only=terraform_documented_outputs'
+          - '--args=--only=terraform_documented_variables'
+          - '--args=--only=terraform_typed_variables'
+          - '--args=--only=terraform_module_pinned_source'
+          - '--args=--only=terraform_naming_convention'
+          - '--args=--only=terraform_required_version'
+          - '--args=--only=terraform_required_providers'
+          - '--args=--only=terraform_standard_module_structure'
+          - '--args=--only=terraform_workspace_remote'
+
+  # Security scanning with Checkov
+  - repo: https://github.com/bridgecrewio/checkov.git
+    rev: '2.4.9'
+    hooks:
+      - id: checkov
+        args: [--framework, terraform, --framework, dockerfile, --framework, kubernetes]
+        exclude: ^\.terraform/
+
+  # JavaScript/TypeScript specific
+  - repo: local
+    hooks:
+      - id: eslint-auth-service
+        name: ESLint - Auth Service
+        entry: bash -c 'cd services/auth-service && npm run lint'
+        language: system
+        files: ^services/auth-service/.*\.(js|ts)$
+        pass_filenames: false
+
+      - id: eslint-frontend
+        name: ESLint - Frontend
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(js|ts|jsx|tsx)$
+        pass_filenames: false
+
+  # Kubernetes manifest validation
+  - repo: https://github.com/instrumenta/kubeval
+    rev: v0.16.1
+    hooks:
+      - id: kubeval
+        files: \.(yaml|yml)$
+        args: ['--strict']
+
+  # Helm chart validation
+  - repo: local
+    hooks:
+      - id: helm-lint
+        name: Helm Lint
+        entry: helm lint
+        language: system
+        files: ^infra/charts/.*/.*\.yaml$
+        pass_filenames: false

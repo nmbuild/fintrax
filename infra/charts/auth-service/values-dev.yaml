@@ -1,0 +1,45 @@
+# Auth Service Helm Values for Development Environment
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nmbuild/fintrax-auth-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: PORT
+    value: "3000"
+  - name: LOG_LEVEL
+    value: "debug"
+
+secrets:
+  CLERK_PUBLISHABLE_KEY: "pk_test_replace_with_dev_key"
+  CLERK_SECRET_KEY: "sk_test_replace_with_dev_key"
+  DATABASE_URL: "postgresql://fintraxuser_dev:devpassword@postgres:5432/fintrax_dev"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80

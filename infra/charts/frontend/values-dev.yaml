@@ -1,0 +1,50 @@
+# Frontend Helm Values for Development Environment
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nmbuild/fintrax-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: fintrax-dev.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: NEXT_PUBLIC_API_URL
+    value: "http://auth-service.fintrax-dev.svc.cluster.local:3000"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
