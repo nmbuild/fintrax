@@ -2,6 +2,13 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+# Install build dependencies for native modules (lightningcss/swc)
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++
+
 # 1) Accept build-args
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_URL
@@ -19,14 +26,26 @@ COPY . .
 RUN yarn build
 
 # ─────── Production Stage ───────
-FROM node:22-alpine
+FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
 
-COPY --from=builder /app/.next ./.next
+# Install runtime dependencies
+RUN apk add --no-cache libc6-compat
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
 COPY --from=builder /app/public ./public
-COPY package.json yarn.lock ./
-RUN yarn install --production --frozen-lockfile
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
 
 EXPOSE 3000
-CMD ["yarn", "start"]
+
+CMD ["node", "server.js"]
