@@ -2,35 +2,28 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Install build dependencies for native modules (lightningcss/swc)
+# Install build dependencies for native modules
 RUN apk add --no-cache \
     libc6-compat \
     python3 \
     make \
     g++
 
-# 1) Accept build-args (only public keys, no secrets)
+# Accept build arguments
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_URL
 
-# 2) Export them into the Next build environment
+# Set environment variables
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# Configure yarn for better network handling
-ENV YARN_NETWORK_TIMEOUT=300000
-ENV YARN_NETWORK_CONCURRENCY=1
-
-# 3) Dependencies with retry mechanism
+# Copy dependency files
 COPY package.json yarn.lock ./
-RUN yarn config set network-timeout 300000 && \
-    yarn config set network-concurrency 1 && \
-    for i in 1 2 3 4 5; do \
-        yarn install --frozen-lockfile --network-timeout 300000 && break || \
-        (echo "Yarn install attempt $i failed, retrying..." && sleep 10); \
-    done
 
-# 4) Source + Build
+# Install dependencies
+RUN yarn install --frozen-lockfile
+
+# Copy source code and build
 COPY . .
 RUN yarn build
 
@@ -41,20 +34,24 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apk add --no-cache libc6-compat
 
+# Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
 # Copy built application
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Switch to non-root user
 USER nextjs
 
+# Expose port
 EXPOSE 3000
 
+# Start the application
 CMD ["node", "server.js"]
