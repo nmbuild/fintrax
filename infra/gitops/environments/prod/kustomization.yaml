@@ -20,7 +20,7 @@ patches:
 secretGenerator:
 - name: frontend-secrets
   literals:
-  - CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}  # Production keys
+  - CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
 
 configMapGenerator:
 - name: environment-config

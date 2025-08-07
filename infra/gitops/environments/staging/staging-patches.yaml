@@ -19,7 +19,7 @@ spec:
         - name: NODE_ENV
           value: "staging"
         - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-          value: "pk_test_STAGING_PUBLISHABLE_KEY_HERE"
+          value: "pk_test_YWxlcnQtY2FyaWJvdS03MS5jbGVyay5hY2NvdW50cy5kZXYk"
 ---
 apiVersion: apps/v1
 kind: Deployment
