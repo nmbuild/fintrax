@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/nmbuild/fintrax
+    repoURL: https://github.com/nmbuild/fintrax.git
     targetRevision: feature/auth
     path: infra/gitops/environments/dev
   destination:
