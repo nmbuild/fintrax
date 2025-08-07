@@ -13,9 +13,9 @@ RUN apk add --no-cache \
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_URL
 
-# Set environment variables
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# Set environment variables with fallbacks for build
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_test_build_placeholder}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
 
 # Copy dependency files
 COPY package.json yarn.lock ./
@@ -25,6 +25,9 @@ RUN yarn install --frozen-lockfile
 
 # Copy source code and build
 COPY . .
+
+# Skip static generation during Docker build
+ENV SKIP_ENV_VALIDATION=true
 RUN yarn build
 
 # ─────── Production Stage ───────
