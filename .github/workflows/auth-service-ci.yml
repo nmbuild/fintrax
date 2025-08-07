@@ -250,7 +250,7 @@ jobs:
     name: Deploy to Development
     runs-on: ubuntu-latest
     needs: [build-and-scan, integration-tests]
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    if: github.ref == 'refs/heads/develop'
     environment: development
     steps:
       - name: Checkout code
@@ -286,8 +286,8 @@ jobs:
             --namespace fintrax-dev \
             --create-namespace \
             --values ./infra/charts/auth-service/values-dev.yaml \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=feature-auth \
+            --set image.repository=ghcr.io/nmbuild/fintrax-auth-service \
+            --set image.tag=develop \
             --wait --timeout=300s
 
       - name: Verify deployment
