@@ -36,30 +36,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'yarn'
-          cache-dependency-path: 'frontend/yarn.lock'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
         working-directory: frontend
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Run ESLint (SAST)
         working-directory: frontend
-        run: yarn lint || echo "Lint script not found, skipping..."
+        run: npm run lint || echo "Lint script not found, skipping..."
 
       - name: Run TypeScript type checking
         working-directory: frontend
-        run: yarn type-check || npx tsc --noEmit
+        run: npm run type-check || npx tsc --noEmit
 
       - name: Run unit tests with coverage
         working-directory: frontend
-        run: yarn test -- --coverage --watchAll=false
+        run: npm test -- --coverage --watchAll=false
         env:
           NODE_ENV: test
 
       - name: Build Next.js app
         working-directory: frontend
-        run: yarn build
+        run: npm run build
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
 
@@ -73,9 +73,9 @@ jobs:
             frontend/.next/
 
       # Supply Chain Security
-      - name: Run yarn audit
+      - name: Run npm audit
         working-directory: frontend
-        run: yarn audit --level moderate || echo "Audit issues found, review required"
+        run: npm audit --audit-level moderate || echo "Audit issues found, review required"
 
       # Dependency vulnerability scan
       - name: Run Snyk security scan
@@ -247,12 +247,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'yarn'
-          cache-dependency-path: 'frontend/yarn.lock'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
         working-directory: frontend
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Install Playwright browsers
         working-directory: frontend
@@ -260,7 +260,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: frontend
-        run: yarn test:e2e || echo "E2E tests not configured, skipping..."
+        run: npm run test:e2e || echo "E2E tests not configured, skipping..."
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
 
