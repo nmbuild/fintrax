@@ -18,17 +18,17 @@ ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_te
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
 
 # Copy dependency files
-COPY package.json yarn.lock ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN npm ci
 
 # Copy source code and build
 COPY . .
 
 # Skip static generation during Docker build
 ENV SKIP_ENV_VALIDATION=true
-RUN yarn build
+RUN npm run build
 
 # ─────── Production Stage ───────
 FROM node:22-alpine AS runner
