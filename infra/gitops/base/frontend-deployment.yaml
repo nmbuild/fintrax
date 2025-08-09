@@ -37,6 +37,11 @@ spec:
               value: "/"
             - name: NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
               value: "/"
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-secrets
+                  key: CLERK_SECRET_KEY
           envFrom:
             - secretRef:
                 name: frontend-secrets
