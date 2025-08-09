@@ -8,9 +8,9 @@ resources:
 
 images:
 - name: ghcr.io/nmbuild/fintrax-frontend
-  newTag: feature-auth
+  newTag: develop
 - name: ghcr.io/nmbuild/fintrax-auth-service
-  newTag: feature-auth
+  newTag: develop
 
 secretGenerator:
 - name: frontend-secrets
