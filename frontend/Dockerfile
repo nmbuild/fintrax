@@ -1,13 +1,13 @@
 # ─────────── Builder Stage ──────────────
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apk add --no-cache \
-    libc6-compat \
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
     python3 \
     make \
-    g++
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Accept build arguments
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
@@ -18,32 +18,34 @@ ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_te
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
 
 # Copy dependency files
-COPY package.json yarn.lock ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN npm ci
 
 # Copy source code and build
 COPY . .
 
 # Skip static generation during Docker build
 ENV SKIP_ENV_VALIDATION=true
-RUN yarn build
+RUN npm run build
 
 # ─────── Production Stage ───────
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk add --no-cache libc6-compat
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs nextjs
 
 # Copy built application
 COPY --from=builder /app/public ./public

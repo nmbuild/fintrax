@@ -1,5 +1,9 @@
 # Node
 node_modules/
+dist/
+build/
+.next/
+.yarn/
 
 # Environment files with secrets
 .env
@@ -31,4 +35,28 @@ terraform.tfvars.json
 # Kubernetes secrets
 **/secrets.yaml
 **/secret.yaml
+
+# Build outputs
+**/dist/
+**/.next/
+**/build/
+
+# Dependencies
+**/node_modules/
+**/.yarn/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Clerk cache
+.clerk/
 

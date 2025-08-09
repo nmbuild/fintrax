@@ -1,19 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: fintrax-dev
+  name: fintrax-staging
   namespace: argocd
   labels:
     app.kubernetes.io/part-of: fintrax
+    environment: staging
 spec:
   project: default
   source:
     repoURL: https://github.com/nmbuild/fintrax.git
-    targetRevision: feature/auth
-    path: infra/gitops/environments/dev
+    targetRevision: staging
+    path: infra/gitops/environments/staging
   destination:
     server: https://kubernetes.default.svc
-    namespace: fintrax-dev
+    namespace: fintrax-staging
   syncPolicy:
     automated:
       prune: true
@@ -21,3 +22,8 @@ spec:
     syncOptions:
     - CreateNamespace=true
     - ServerSideApply=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

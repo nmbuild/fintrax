@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: frontend
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        env:
+        - name: NODE_ENV
+          value: "staging"
+        - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+          value: "pk_test_YWxlcnQtY2FyaWJvdS03MS5jbGVyay5hY2NvdW50cy5kZXYk"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: auth-service
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: NODE_ENV
+          value: "staging"

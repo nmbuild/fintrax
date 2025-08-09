@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: fintrax-staging
+
+resources:
+- ../../base
+
+images:
+- name: ghcr.io/nmbuild/fintrax-frontend
+  newTag: staging
+- name: ghcr.io/nmbuild/fintrax-auth-service
+  newTag: staging
+
+patches:
+- path: staging-patches.yaml
+
+secretGenerator:
+- name: frontend-secrets
+  literals:
+  - CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}  # Different staging keys
+
+configMapGenerator:
+- name: environment-config
+  literals:
+  - ENVIRONMENT=staging
+  - LOG_LEVEL=info
+  - DEBUG=false

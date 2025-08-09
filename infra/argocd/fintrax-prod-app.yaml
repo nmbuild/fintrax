@@ -1,23 +1,27 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: fintrax-dev
+  name: fintrax-prod
   namespace: argocd
   labels:
     app.kubernetes.io/part-of: fintrax
+    environment: production
 spec:
   project: default
   source:
     repoURL: https://github.com/nmbuild/fintrax.git
-    targetRevision: feature/auth
-    path: infra/gitops/environments/dev
+    targetRevision: main
+    path: infra/gitops/environments/prod
   destination:
     server: https://kubernetes.default.svc
-    namespace: fintrax-dev
+    namespace: fintrax-prod
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
     - CreateNamespace=true
     - ServerSideApply=true
+    # Manual sync for production (no automated)
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

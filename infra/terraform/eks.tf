@@ -17,11 +17,11 @@ module "eks" {
   # Security configurations
   cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
   
-  # Encryption at rest
-  cluster_encryption_config = {
-    provider_key_arn = aws_kms_key.eks.arn
-    resources        = ["secrets"]
-  }
+  # Encryption at rest - using AWS managed keys for now
+  # cluster_encryption_config = {
+  #   provider_key_arn = aws_kms_key.eks.arn
+  #   resources        = ["secrets"]
+  # }
 
   # EKS Managed Node Groups - Optimized for multiple environments
   eks_managed_node_groups = {
@@ -38,12 +38,6 @@ module "eks" {
       launch_template_use_name_prefix = true
       launch_template_version         = "$Latest"
       
-      # Enable access to the cluster
-      remote_access = {
-        ec2_ssh_key               = aws_key_pair.eks_key.key_name
-        source_security_group_ids = [aws_security_group.eks_remote_access.id]
-      }
-      
       # EBS optimization
       ebs_optimized = true
       
@@ -56,8 +50,8 @@ module "eks" {
             volume_type           = "gp3"
             iops                  = 3000
             throughput            = 150
-            encrypted             = true
-            kms_key_id            = aws_kms_key.eks.arn
+            # encrypted             = true
+            # kms_key_id            = aws_kms_key.eks.arn
             delete_on_termination = true
           }
         }
@@ -103,12 +97,6 @@ module "eks" {
       launch_template_use_name_prefix = true
       launch_template_version         = "$Latest"
       
-      # Enable access to the cluster
-      remote_access = {
-        ec2_ssh_key               = aws_key_pair.eks_key.key_name
-        source_security_group_ids = [aws_security_group.eks_remote_access.id]
-      }
-      
       # EBS optimization
       ebs_optimized = true
       
@@ -121,8 +109,8 @@ module "eks" {
             volume_type           = "gp3"
             iops                  = 3000
             throughput            = 150
-            encrypted             = true
-            kms_key_id            = aws_kms_key.eks.arn
+            # encrypted             = true
+            # kms_key_id            = aws_kms_key.eks.arn
             delete_on_termination = true
           }
         }
@@ -205,45 +193,21 @@ module "eks" {
   }
 }
 
-# KMS key for EKS cluster encryption
-resource "aws_kms_key" "eks" {
-  description             = "EKS Secret Encryption Key"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
+# KMS key for EKS cluster encryption - disabled for now
+# resource "aws_kms_key" "eks" {
+#   description             = "EKS Secret Encryption Key"
+#   deletion_window_in_days = 7
+#   enable_key_rotation     = true
 
-  tags = {
-    Name = "fintrax-eks-encryption-key"
-  }
-}
+#   tags = {
+#     Name = "fintrax-eks-encryption-key"
+#   }
+# }
 
-resource "aws_kms_alias" "eks" {
-  name          = "alias/fintrax-eks-encryption-key"
-  target_key_id = aws_kms_key.eks.key_id
-}
-
-# Security group for remote access to EKS nodes
-resource "aws_security_group" "eks_remote_access" {
-  name_prefix = "fintrax-eks-remote-access"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-    cidr_blocks = ["10.0.0.0/16"] # Only allow SSH from within VPC
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "fintrax-eks-remote-access"
-  }
-}
+# resource "aws_kms_alias" "eks" {
+#   name          = "alias/fintrax-eks-encryption-key"
+#   target_key_id = aws_kms_key.eks.key_id
+# }
 
 # IRSA for EBS CSI Driver
 module "irsa-ebs-csi" {
@@ -258,15 +222,5 @@ module "irsa-ebs-csi" {
 
   tags = {
     Name = "fintrax-ebs-csi-irsa"
-  }
-}
-
-# Create SSH key for node access
-resource "aws_key_pair" "eks_key" {
-  key_name   = "fintrax-eks-key"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC01WtFzGcdqcRtTQV16mXKk0Jnbn0kXFDmxoSfBeVqZXZyO65ZImSlKe9NybkSRC64bmBWL6Wo9zE+s2w74KkdxqBh6d5CKrop2P0HxmA15p17anyGRQwbPAuHTfjQMQW+7jF8WOnzIlzeZ4SGL+6Y2xLmitLmKWydArO1lbvWp1lzdINYL6nRew5BYh1xTc03YaAV8Kb2QVxjdIgRW5gRD2Pzr+0/CwUmuJndfJDknla7+DgpRM3tuhSUkoAIoPg/cFHrBtGJQWAyNxL2/lsOmO9e3WD+G6fkHWsZf89SP8k652li2qJimC7/OLDpLMyxp+46iAfRfKVNR+3PRlAHAszeXuUrckOvMA2OkrtC+o+y/dPBVqDUAZApvawD67Um0Au3PHABjIBVAP+vX+IrJ3I2g6BxlftsMUNWwPwMtqQ4RJxZsZXOc05Iy/k8shv+i+kWVR3R+Y7AH3NtuWjj6g4jUpgeAD8AY1C2vVZwDpmlzEp5+M8c2/G+VYgFE8PVo+ZLQaBNMkHvxlOS5ehj62AL4n6JWVapfnmx04wo5sAtuUec8vVmJke2HagEW6kCVNp9g5YtBW+gmw56WtHJuK+PKI+cX+idMkR/vma9g92iXf75Rn6wJYWdUBukLlr8vlow0qBp50WiNCUXYQHpzW0jnn4e1fdHfGSL82AgOQ== fintrax-eks-nodes"
-  
-  tags = {
-    Name = "fintrax-eks-key"
   }
 }
