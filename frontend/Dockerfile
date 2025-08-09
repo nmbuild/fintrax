@@ -1,4 +1,4 @@
-# ─────────── Builder Stage ──────────────
+# ─────────── Builder Stage ───────────────
 FROM node:22-slim AS builder
 WORKDIR /app
 
