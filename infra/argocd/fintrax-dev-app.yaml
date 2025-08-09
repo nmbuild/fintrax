@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/nmbuild/fintrax.git
-    targetRevision: feature/auth
+    targetRevision: develop
     path: infra/gitops/environments/dev
   destination:
     server: https://kubernetes.default.svc

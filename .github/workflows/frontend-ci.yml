@@ -129,9 +129,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
-            type=sha,prefix=pr-{{branch}}-,enable=${{ github.event_name == 'pull_request' }}
+            type=ref,event=pr  
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
